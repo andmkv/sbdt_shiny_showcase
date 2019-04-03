@@ -10,11 +10,15 @@
 library(shiny)
 library(ggplot2)
 
-#ggplot(as.data.frame(ts), mapping = aes(x = x, y = x)) + geom_line()
+# A function needed to simply convert the time series into a data frame
+ts_to_df <- function(ts) {
+  data.frame(period = time(ts), value = as.matrix(ts))
+}
 
+# Creating the initial time series
 ts <- as.ts(1:100)
 
-# Define UI for application that draws a histogram
+
 ui <- fluidPage(
    
    # Application title
@@ -37,19 +41,32 @@ ui <- fluidPage(
    )
 )
 
-# Define server logic required to draw a histogram
 server <- function(input, output) {
   
-  observeEvent(input$size, {
-    
-  })
+  # Declaring a reactive variable for the time series
+  vars <- reactiveValues(ts = ts)
   
   observeEvent(input$plot_click, {
+    xpos <- floor(input$plot_click$x)
+    ypos <- input$plot_click$y
+    currts <- vars$ts
     
+    # calculating the "width" of a spline
+    spl_width <- input$size
+    spl_from <- ifelse(xpos - spl_width <= 0, 1, xpos - spl_width)
+    spl_to <- ifelse(xpos + spl_width >= length(currts), length(currts), xpos + spl_width)
+    
+    # clearing values close to the clicked point to free up space for a spline, and 'drawing' it
+    currts[spl_from:spl_to] <- NA
+    currts[xpos] <- ypos
+    currts <- na.spline(currts)
+    
+    # putting it back into the reactive variable
+    vars$ts <- currts
   })
    
    output$plot <- renderPlot({
-      ggplot()
+     ggplot(ts_to_df(vars$ts), mapping = aes(x = period, y = value)) + geom_line()
    })
 }
 
